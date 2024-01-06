@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.components.number import NumberEntity
+from homeassistant.components.cover import CoverEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
@@ -25,6 +25,14 @@ from homeassistant.const import (
     SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
     EntityCategory,
     UnitOfTime,
+)
+
+from homeassistant.components.cover import (
+    ATTR_POSITION,
+    ATTR_TILT_POSITION,
+    CoverDeviceClass,
+    CoverEntity,
+    CoverEntityFeature,
 )
 
 from .const import DOMAIN
@@ -50,7 +58,8 @@ SENSOR_DESCRIPTIONS: dict[str, SensorEntityDescription] = {
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=False,
-    ),
+    )
+}
 
 def device_key_to_bluetooth_entity_key(
     device_key: DeviceKey,
@@ -86,7 +95,7 @@ def sensor_update_to_bluetooth_data_update(
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: config_entries.ConfigEntry,
+    entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator: PassiveBluetoothProcessorCoordinator = hass.data[DOMAIN][
@@ -95,7 +104,7 @@ async def async_setup_entry(
     processor = PassiveBluetoothDataProcessor(sensor_update_to_bluetooth_data_update)
     entry.async_on_unload(
         processor.async_add_entities_listener(
-            OralBBluetoothSensorEntity, async_add_entities
+            BLEBlindEntity, async_add_entities
         )
     )
     entry.async_on_unload(
@@ -104,13 +113,21 @@ async def async_setup_entry(
 
 class BLEBlindEntity(
         PassiveBluetoothProcessorEntity[PassiveBluetoothDataProcessor[str | int | None]],
-        NumberEntity):
+        CoverEntity):
     """Representation of LEDBLE device."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self._attr_device_class = CoverDeviceClass.SHUTTER
+
 
     @property
-    def native_value(self) -> str | int | None:
-        """Return the native value."""
+    def current_cover_position(self) -> int:
         return self.processor.entity_data.get(self.entity_key)
+
+    @property
+    def is_closed(self) -> int:
+        return self.current_cover_position == 0
 
     @property
     def available(self) -> bool:

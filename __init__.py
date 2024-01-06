@@ -19,7 +19,7 @@ from .const import DOMAIN
 
 from .model import BLEBlindData
 
-PLATFORMS: list[Platform] = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.COVER]
 
 _LOGGER = logging.getLogger(__name__)
 
