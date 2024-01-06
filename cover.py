@@ -60,11 +60,11 @@ class BLEBlindEntity(
 
     async def async_open_cover(self, **kwargs):
         """Open the cover."""
-        self._device.set_position(100)
+        await self._device.set_position(100)
 
     async def async_close_cover(self, **kwargs):
         """Close the cover."""
-        self._device.set_position(0)
+        await self._device.set_position(0)
 
     @property
     def current_cover_position(self) -> int:
