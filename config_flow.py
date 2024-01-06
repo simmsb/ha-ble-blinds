@@ -65,6 +65,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 await led_ble.update()
             except BLEAK_EXCEPTIONS:
                 errors["base"] = "cannot_connect"
+                _LOGGER.exception("Connection error")
             except Exception:  # pylint: disable=broad-except
                 _LOGGER.exception("Unexpected error")
                 errors["base"] = "unknown"

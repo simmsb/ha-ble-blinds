@@ -89,7 +89,14 @@ class BLEBlind:
         assert self._client is not None  # nosec
         if not self._position_char:
             raise CharacteristicMissingError("Read characteristic missing")
-        await self._client.write_gatt_char(self._write_char, struct.pack("<H", position), False)
+        await self._client.write_gatt_char(self._position_char, struct.pack("<H", position), False)
+
+    async def _read_position_locked(self) -> None:
+        assert self._client is not None  # nosec
+        if not self._position_char:
+            raise CharacteristicMissingError("Read characteristic missing")
+        r = await self._client.read_gatt_char(self._position_char, False)
+        self._notification_handler(0, r)
 
     async def _ensure_connected(self) -> None:
         """Ensure connection to device is established."""
@@ -128,7 +135,7 @@ class BLEBlind:
             _LOGGER.debug(
                 "%s: Subscribe to notifications; RSSI: %s", self.name, self.rssi
             )
-            await client.start_notify(self._read_char, self._notification_handler)
+            await client.start_notify(self._position_char, self._notification_handler)
 
     def _reset_disconnect_timer(self) -> None:
         """Reset disconnect timer."""
@@ -169,21 +176,27 @@ class BLEBlind:
     async def _execute_disconnect(self) -> None:
         """Execute disconnection."""
         async with self._connect_lock:
-            read_char = self._read_char
+            position_char = self._position_char
             client = self._client
             self._expected_disconnect = True
             self._client = None
-            self._read_char = None
-            self._write_char = None
+            self._position_char = None
             if client and client.is_connected:
-                if read_char:
+                if position_char:
                     try:
-                        await client.stop_notify(read_char)
+                        await client.stop_notify(position_char)
                     except BleakError:
                         _LOGGER.debug(
                             "%s: Failed to stop notifications", self.name, exc_info=True
                         )
                 await client.disconnect()
+
+    async def _get_position(
+        self, retry: int | None = None
+    ) -> None:
+        """Send command to device and read response."""
+        await self._ensure_connected()
+        await self._get_position_while_connected( retry)
 
     async def _set_position(
         self, position: int, retry: int | None = None
@@ -191,6 +204,47 @@ class BLEBlind:
         """Send command to device and read response."""
         await self._ensure_connected()
         await self._set_position_while_connected(position, retry)
+
+    async def _get_position_while_connected(
+        self, retry: int | None = None
+    ) -> None:
+        """Send command to device and read response."""
+        _LOGGER.debug(
+            "%s: getting position",
+            self.name,
+        )
+        if self._operation_lock.locked():
+            _LOGGER.debug(
+                "%s: Operation already in progress, waiting for it to complete; RSSI: %s",
+                self.name,
+                self.rssi,
+            )
+        async with self._operation_lock:
+            try:
+                await self._get_position_locked()
+                return
+            except BleakNotFoundError:
+                _LOGGER.error(
+                    "%s: device not found, no longer in range, or poor RSSI: %s",
+                    self.name,
+                    self.rssi,
+                    exc_info=True,
+                )
+                raise
+            except CharacteristicMissingError as ex:
+                _LOGGER.debug(
+                    "%s: characteristic missing: %s; RSSI: %s",
+                    self.name,
+                    ex,
+                    self.rssi,
+                    exc_info=True,
+                )
+                raise
+            except BLEAK_EXCEPTIONS:
+                _LOGGER.debug("%s: communication failed", self.name, exc_info=True)
+                raise
+
+        raise RuntimeError("Unreachable")
 
     async def _set_position_while_connected(
         self, position: int, retry: int | None = None
@@ -259,6 +313,32 @@ class BLEBlind:
             await self._execute_disconnect()
             raise
 
+    @retry_bluetooth_connection_error(DEFAULT_ATTEMPTS)
+    async def _get_position_locked(self) -> None:
+        """Send command to device and read response."""
+        try:
+            await self._read_position_locked()
+        except BleakDBusError as ex:
+            # Disconnect so we can reset state and try again
+            await asyncio.sleep(BLEAK_BACKOFF_TIME)
+            _LOGGER.debug(
+                "%s: RSSI: %s; Backing off %ss; Disconnecting due to error: %s",
+                self.name,
+                self.rssi,
+                BLEAK_BACKOFF_TIME,
+                ex,
+            )
+            await self._execute_disconnect()
+            raise
+        except BleakError as ex:
+            # Disconnect so we can reset state and try again
+            _LOGGER.debug(
+                "%s: RSSI: %s; Disconnecting due to error: %s", self.name, self.rssi, ex
+            )
+            await self._execute_disconnect()
+            raise
+
+
     async def set_position(self, position: int):
         await self._set_position(position)
 
@@ -268,7 +348,9 @@ class BLEBlind:
             self._position_char = char
         return bool(self._position_char)
 
-
+    async def update(self):
+        await self._ensure_connected()
+        await self._get_position()
 
 @dataclass
 class BLEBlindData:
