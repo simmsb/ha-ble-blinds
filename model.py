@@ -100,7 +100,6 @@ class BLEBlind:
 
     def _notification_handler(self, _sender: int, data: bytearray) -> None:
         """Handle notification responses."""
-        _LOGGER.warning("Got data: %s", data)
         try:
             self._position, = struct.unpack("<H", data)
         except Exception as e:
@@ -369,10 +368,8 @@ class BLEBlind:
 
     def _resolve_characteristics(self, services: BleakGATTServiceCollection) -> bool:
         """Resolve characteristics."""
-        _LOGGER.warning("Services: %s", list(services))
         if service := next((s for s in services if s.uuid == SERVICE_UUID), None):
             if char := service.get_characteristic(POSITION_UUID):
-                _LOGGER.warning("Got characteristic: %s", char)
                 self._position_char = char
         return bool(self._position_char)
 

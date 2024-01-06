@@ -68,7 +68,7 @@ class BLEBlindEntity(
 
     @property
     def current_cover_position(self) -> int:
-        return self.processor.entity_data.get(self.entity_key)
+        return self._device.position
 
     @property
     def is_closed(self) -> int:
