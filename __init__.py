@@ -5,7 +5,7 @@ import asyncio
 from datetime import timedelta
 import logging
 
-from bleak import BLEAK_EXCEPTIONS
+from bleak_retry_connector import BLEAK_RETRY_EXCEPTIONS as BLEAK_EXCEPTIONS
 
 from homeassistant.components import bluetooth
 from homeassistant.components.bluetooth.match import ADDRESS, BluetoothCallbackMatcher

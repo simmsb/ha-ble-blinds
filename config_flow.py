@@ -5,7 +5,7 @@ import logging
 from typing import Any
 
 from bluetooth_data_tools import human_readable_name
-from bleak import BLEAK_EXCEPTIONS
+from bleak_retry_connector import BLEAK_RETRY_EXCEPTIONS as BLEAK_EXCEPTIONS
 import voluptuous as vol
 
 from homeassistant import config_entries
