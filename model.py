@@ -95,7 +95,7 @@ class BLEBlind:
         assert self._client is not None  # nosec
         if not self._position_char:
             raise CharacteristicMissingError("Read characteristic missing")
-        r = await self._client.read_gatt_char(self._position_char, False)
+        r = await self._client.read_gatt_char(self._position_char)
         self._notification_handler(0, r)
 
     async def _ensure_connected(self) -> None:
