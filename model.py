@@ -344,8 +344,8 @@ class BLEBlind:
 
     def _resolve_characteristics(self, services: BleakGATTServiceCollection) -> bool:
         """Resolve characteristics."""
-        if service := (s for s in services if s.uuid == SERVICE_UUID):
-            if char := services.get_characteristic(POSITION_UUID):
+        if service := next((s for s in services if s.uuid == SERVICE_UUID), None):
+            if char := service.get_characteristic(POSITION_UUID):
                 self._position_char = char
         return bool(self._position_char)
 
