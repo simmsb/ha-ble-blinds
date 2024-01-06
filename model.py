@@ -16,7 +16,7 @@ from bleak_retry_connector import (
 )
 from home_assistant_bluetooth import BluetoothServiceInfo
 
-from .const import POSITION_UUID, UPDATE_SECONDS
+from .const import POSITION_UUID, UPDATE_SECONDS, SERVICE_UUID
 
 import logging
 
@@ -344,8 +344,9 @@ class BLEBlind:
 
     def _resolve_characteristics(self, services: BleakGATTServiceCollection) -> bool:
         """Resolve characteristics."""
-        if char := services.get_characteristic(POSITION_UUID):
-            self._position_char = char
+        if service := (s for s in services if s.uuid == SERVICE_UUID):
+            if char := services.get_characteristic(POSITION_UUID):
+                self._position_char = char
         return bool(self._position_char)
 
     async def update(self):
