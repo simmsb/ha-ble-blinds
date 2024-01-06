@@ -18,7 +18,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .const import DEVICE_TIMEOUT, DOMAIN, UPDATE_SECONDS
 from .model import BLEBlindData, BLEBlind
 
-PLATFORMS: list[Platform] = [Platform.LIGHT]
+PLATFORMS: list[Platform] = [Platform.COVER]
 
 _LOGGER = logging.getLogger(__name__)
 
