@@ -15,5 +15,6 @@
   "requirements": ["bleak==0.21.1"],
   "loggers": ["ble_blinds"],
   "ssdp": [],
-  "zeroconf": []
+  "zeroconf": [],
+  "version": "1"
 }
