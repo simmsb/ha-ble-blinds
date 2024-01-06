@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 import asyncio
 import struct
+from typing import Callable
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData
@@ -41,6 +42,7 @@ class BLEBlind:
         self._client: BleakClientWithServiceCache | None = None
         self._expected_disconnect = False
         self.loop = asyncio.get_running_loop()
+        self._callbacks: list[Callable[[int], None]] = []
         self._position = 0
 
     def set_ble_device_and_advertisement_data(
@@ -76,6 +78,22 @@ class BLEBlind:
             return self._advertisement_data.rssi
         return None
 
+    def _fire_callbacks(self) -> None:
+        """Fire the callbacks."""
+        for callback in self._callbacks:
+            callback(self._position)
+
+    def register_callback(
+        self, callback: Callable[[int], None]
+    ) -> Callable[[], None]:
+        """Register a callback to be called when the state changes."""
+
+        def unregister_callback() -> None:
+            self._callbacks.remove(callback)
+
+        self._callbacks.append(callback)
+        return unregister_callback
+
     async def stop(self) -> None:
         _LOGGER.debug("%s: Stop", self.name)
         await self._execute_disconnect()
@@ -87,6 +105,8 @@ class BLEBlind:
             self._position, = struct.unpack("<H", data)
         except Exception as e:
             _LOGGER.exception("Failed to decode position: %s", data)
+
+        self._fire_callbacks()
 
     async def _execute_position_locked(self, position: int) -> None:
         """Execute command and read response."""
@@ -345,6 +365,7 @@ class BLEBlind:
 
     async def set_position(self, position: int):
         await self._set_position(position)
+        self._fire_callbacks()
 
     def _resolve_characteristics(self, services: BleakGATTServiceCollection) -> bool:
         """Resolve characteristics."""
