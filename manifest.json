@@ -1,0 +1,18 @@
+{
+  "domain": "ble_blinds",
+  "name": "BLE blinds controller",
+  "bluetooth": [
+    {
+      "service_uuid": "346f721a-14f7-4065-8a1f-ad91e35f9bb2"
+    }
+  ],
+  "codeowners": ["@simmsb"],
+  "config_flow": true,
+  "dependencies": ["bluetooth"],
+  "documentation": "https://www.home-assistant.io/integrations/ble_blinds",
+  "homekit": {},
+  "iot_class": "calculated",
+  "requirements": ["bleak==0.21.1"],
+  "ssdp": [],
+  "zeroconf": []
+}
