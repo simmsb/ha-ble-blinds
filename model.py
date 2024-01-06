@@ -114,7 +114,7 @@ class BLEBlind:
         if not self._position_write_char:
             raise CharacteristicMissingError("write characteristic missing")
         _LOGGER.debug("Writing position: %s", position)
-        await self._client.write_gatt_char(self._position_write_char, struct.pack("<H", position), False)
+        await self._client.write_gatt_char(self._position_write_char, struct.pack("<H", position), True)
 
     async def _read_position_locked(self) -> None:
         assert self._client is not None  # nosec
