@@ -17,7 +17,7 @@ from bleak_retry_connector import (
 )
 from home_assistant_bluetooth import BluetoothServiceInfo
 
-from .const import POSITION_UUID, UPDATE_SECONDS, SERVICE_UUID
+from .const import POSITION_READ_UUID, UPDATE_SECONDS, SERVICE_UUID, POSITION_WRITE_UUID
 
 import logging
 
@@ -37,7 +37,8 @@ class BLEBlind:
         self._advertisement_data = advertisement_data
         self._operation_lock = asyncio.Lock()
         self._connect_lock: asyncio.Lock = asyncio.Lock()
-        self._position_char: BleakGATTCharacteristic | None = None
+        self._position_read_char: BleakGATTCharacteristic | None = None
+        self._position_write_char: BleakGATTCharacteristic | None = None
         self._disconnect_timer: asyncio.TimerHandle | None = None
         self._client: BleakClientWithServiceCache | None = None
         self._expected_disconnect = False
@@ -110,16 +111,16 @@ class BLEBlind:
     async def _execute_position_locked(self, position: int) -> None:
         """Execute command and read response."""
         assert self._client is not None  # nosec
-        if not self._position_char:
-            raise CharacteristicMissingError("Read characteristic missing")
+        if not self._position_write_char:
+            raise CharacteristicMissingError("write characteristic missing")
         _LOGGER.debug("Writing position: %s", position)
-        await self._client.write_gatt_char(self._position_char, struct.pack("<H", position), False)
+        await self._client.write_gatt_char(self._position_write_char, struct.pack("<H", position), False)
 
     async def _read_position_locked(self) -> None:
         assert self._client is not None  # nosec
-        if not self._position_char:
+        if not self._position_read_char:
             raise CharacteristicMissingError("Read characteristic missing")
-        r = await self._client.read_gatt_char(self._position_char)
+        r = await self._client.read_gatt_char(self._position_read_char)
         self._notification_handler(0, r)
 
     async def _ensure_connected(self) -> None:
@@ -200,15 +201,16 @@ class BLEBlind:
     async def _execute_disconnect(self) -> None:
         """Execute disconnection."""
         async with self._connect_lock:
-            position_char = self._position_char
+            position_read_char = self._position_read_char
             client = self._client
             self._expected_disconnect = True
             self._client = None
-            self._position_char = None
+            self._position_read_char = None
+            self._position_write_char = None
             if client and client.is_connected:
-                if position_char:
+                if position_read_char:
                     try:
-                        await client.stop_notify(position_char)
+                        await client.stop_notify(position_read_char)
                     except BleakError:
                         _LOGGER.debug(
                             "%s: Failed to stop notifications", self.name, exc_info=True
@@ -370,9 +372,11 @@ class BLEBlind:
     def _resolve_characteristics(self, services: BleakGATTServiceCollection) -> bool:
         """Resolve characteristics."""
         if service := next((s for s in services if s.uuid == SERVICE_UUID), None):
-            if char := service.get_characteristic(POSITION_UUID):
-                self._position_char = char
-        return bool(self._position_char)
+            if char := service.get_characteristic(POSITION_READ_UUID):
+                self._position_read_char = char
+            if char := service.get_characteristic(POSITION_WRITE_UUID):
+                self._position_write_char = char
+        return bool(self._position_read_char and self._position_write_char)
 
     async def update(self):
         await self._ensure_connected()
