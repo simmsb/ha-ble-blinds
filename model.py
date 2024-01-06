@@ -344,7 +344,7 @@ class BLEBlind:
 
     def _resolve_characteristics(self, services: BleakGATTServiceCollection) -> bool:
         """Resolve characteristics."""
-        _LOGGER.warning("Services: %s", services)
+        _LOGGER.warning("Services: %s", list(services))
         if service := next((s for s in services if s.uuid == SERVICE_UUID), None):
             if char := service.get_characteristic(POSITION_UUID):
                 _LOGGER.warning("Got characteristic: %s", char)
