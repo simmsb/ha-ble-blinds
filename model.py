@@ -82,7 +82,11 @@ class BLEBlind:
 
     def _notification_handler(self, _sender: int, data: bytearray) -> None:
         """Handle notification responses."""
-        self._position, = struct.unpack("<H", data)
+        _LOGGER.warning("Got data: %s", data)
+        try:
+            self._position, = struct.unpack("<H", data)
+        except Exception as e:
+            _LOGGER.exception("Failed to decode position: %s", data)
 
     async def _execute_position_locked(self, position: int) -> None:
         """Execute command and read response."""
