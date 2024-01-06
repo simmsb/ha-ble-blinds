@@ -8,11 +8,12 @@
   ],
   "codeowners": ["@simmsb"],
   "config_flow": true,
-  "dependencies": ["bluetooth"],
+  "dependencies": ["bluetooth_adapters"],
   "documentation": "https://www.home-assistant.io/integrations/ble_blinds",
   "homekit": {},
   "iot_class": "calculated",
   "requirements": ["bleak==0.21.1"],
+  "loggers": ["ble_blinds"],
   "ssdp": [],
   "zeroconf": []
 }

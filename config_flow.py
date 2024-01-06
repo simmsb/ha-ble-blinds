@@ -17,7 +17,7 @@ from homeassistant.data_entry_flow import FlowResult
 
 from .const import DOMAIN
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = logging.getLogger("ble_blinds")
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):

@@ -22,7 +22,7 @@ from .model import BLEBlindData
 
 PLATFORMS: list[Platform] = [Platform.LIGHT]
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = logging.getLogger("ble_blinds")
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
