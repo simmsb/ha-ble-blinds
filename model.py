@@ -135,7 +135,7 @@ class BLEBlind:
             _LOGGER.debug(
                 "%s: Subscribe to notifications; RSSI: %s", self.name, self.rssi
             )
-            await client.start_notify(self._position_char, self._notification_handler)
+            # await client.start_notify(self._position_char, self._notification_handler)
 
     def _reset_disconnect_timer(self) -> None:
         """Reset disconnect timer."""
@@ -344,8 +344,10 @@ class BLEBlind:
 
     def _resolve_characteristics(self, services: BleakGATTServiceCollection) -> bool:
         """Resolve characteristics."""
+        _LOGGER.debug("Services: %s", services)
         if service := next((s for s in services if s.uuid == SERVICE_UUID), None):
             if char := service.get_characteristic(POSITION_UUID):
+                _LOGGER.debug("Got characteristic: %s", char)
                 self._position_char = char
         return bool(self._position_char)
 
