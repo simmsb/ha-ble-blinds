@@ -3,30 +3,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.components.cover import CoverEntity
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers import device_registry as dr
-from homeassistant.helpers.device_registry import DeviceInfo
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import (
-    CoordinatorEntity,
-    DataUpdateCoordinator,
-)
-from sensor_state_data import DeviceKey, SensorUpdate
-from homeassistant.components.sensor import (
-    SensorDeviceClass,
-    SensorEntity,
-    SensorEntityDescription,
-    SensorStateClass,
-)
-from homeassistant.const import (
-    PERCENTAGE,
-    SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
-    EntityCategory,
-    UnitOfTime,
-)
-
 from homeassistant.components.cover import (
     ATTR_POSITION,
     ATTR_TILT_POSITION,
@@ -34,63 +10,18 @@ from homeassistant.components.cover import (
     CoverEntity,
     CoverEntityFeature,
 )
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import (
+    CoordinatorEntity,
+    DataUpdateCoordinator,
+)
+from homeassistant.helpers import device_registry as dr
 
 from .const import DOMAIN
 from .model import BLEBlindData
-
-from homeassistant.helpers.sensor import sensor_device_info_to_hass_device_info
-
-from homeassistant.components.bluetooth.passive_update_processor import (
-    PassiveBluetoothEntityKey,
-)
-from homeassistant.components.bluetooth.passive_update_processor import (
-    PassiveBluetoothDataProcessor,
-    PassiveBluetoothDataUpdate,
-    PassiveBluetoothProcessorCoordinator,
-    PassiveBluetoothProcessorEntity,
-)
-
-SENSOR_DESCRIPTIONS: dict[str, SensorEntityDescription] = {
-    "signal_strength": SensorEntityDescription(
-        key="signal_strength",
-        device_class=SensorDeviceClass.SIGNAL_STRENGTH,
-        native_unit_of_measurement=SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
-        state_class=SensorStateClass.MEASUREMENT,
-        entity_category=EntityCategory.DIAGNOSTIC,
-        entity_registry_enabled_default=False,
-    )
-}
-
-def device_key_to_bluetooth_entity_key(
-    device_key: DeviceKey,
-) -> PassiveBluetoothEntityKey:
-    """Convert a device key to an entity key."""
-    return PassiveBluetoothEntityKey(device_key.key, device_key.device_id)
-
-def sensor_update_to_bluetooth_data_update(
-    sensor_update: SensorUpdate,
-) -> PassiveBluetoothDataUpdate:
-    """Convert a sensor update to a bluetooth data update."""
-    return PassiveBluetoothDataUpdate(
-        devices={
-            device_id: sensor_device_info_to_hass_device_info(device_info)
-            for device_id, device_info in sensor_update.devices.items()
-        },
-        entity_descriptions={
-            device_key_to_bluetooth_entity_key(device_key): SENSOR_DESCRIPTIONS[
-                device_key.key
-            ]
-            for device_key in sensor_update.entity_descriptions
-        },
-        entity_data={
-            device_key_to_bluetooth_entity_key(device_key): sensor_values.native_value
-            for device_key, sensor_values in sensor_update.entity_values.items()
-        },
-        entity_names={
-            device_key_to_bluetooth_entity_key(device_key): sensor_values.name
-            for device_key, sensor_values in sensor_update.entity_values.items()
-        },
-    )
 
 
 async def async_setup_entry(
@@ -98,28 +29,42 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    coordinator: PassiveBluetoothProcessorCoordinator = hass.data[DOMAIN][
-        entry.entry_id
-    ]
-    processor = PassiveBluetoothDataProcessor(sensor_update_to_bluetooth_data_update)
-    entry.async_on_unload(
-        processor.async_add_entities_listener(
-            BLEBlindEntity, async_add_entities
-        )
-    )
-    entry.async_on_unload(
-        coordinator.async_register_processor(processor, SensorEntityDescription)
-    )
+    """Set up the light platform for LEDBLE."""
+    data: BLEBlindData = hass.data[DOMAIN][entry.entry_id]
+    async_add_entities([BLEBlindEntity(data.coordinator, data.device, entry.title)])
 
 class BLEBlindEntity(
-        PassiveBluetoothProcessorEntity[PassiveBluetoothDataProcessor[str | int | None]],
+        CoordinatorEntity,
         CoverEntity):
     """Representation of LEDBLE device."""
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
 
+    _attr_supported_features = CoverEntityFeature.OPEN | CoverEntityFeature.CLOSE
+
+    def __init__(self, coordinator, device, name):
+        super().__init__(coordinator)
+        self._device = device
+        self._attr_unique_id = device.address
+        self._attr_device_info = DeviceInfo(
+            name=name,
+            model=f"Blind shutter",
+            sw_version="0.1",
+            connections={(dr.CONNECTION_BLUETOOTH, device.address)},
+        )
         self._attr_device_class = CoverDeviceClass.SHUTTER
 
+    @callback
+    def _async_update_attrs(self) -> None:
+        """Handle updating _attr values."""
+        device = self._device
+        self._attr_position = device.position
+
+    async def async_open_cover(self, **kwargs):
+        """Open the cover."""
+        self._device.set_position(100)
+
+    async def async_close_cover(self, **kwargs):
+        """Close the cover."""
+        self._device.set_position(0)
 
     @property
     def current_cover_position(self) -> int:
@@ -145,3 +90,16 @@ class BLEBlindEntity(
     def assumed_state(self) -> bool:
         """Return True if the device is no longer broadcasting."""
         return not self.processor.available
+
+    @callback
+    def _handle_coordinator_update(self, *args: Any) -> None:
+        """Handle data update."""
+        self._async_update_attrs()
+        self.async_write_ha_state()
+
+    async def async_added_to_hass(self) -> None:
+        """Register callbacks."""
+        self.async_on_remove(
+            self._device.register_callback(self._handle_coordinator_update)
+        )
+        return await super().async_added_to_hass()
