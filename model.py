@@ -47,11 +47,11 @@ class BLEBlindData(BluetoothData):
         position = await client.read_gatt_char(position_char)
         self.update_sensor("position", None, str(position), None, "Position")
 
-    async def connect(self):
+    async def async_poll(self, ble_device: BLEDevice):
+        client = await establish_connection(
+            BleakClientWithServiceCache, ble_device, ble_device.address
+        )
         try:
-            client = await establish_connection(
-                BleakClientWithServiceCache, self.device, self.device.address
-            )
             await self._get_payload(client)
         except BleakError as err:
             _LOGGER.warning(f"Reading gatt characters failed with err: {err}")
