@@ -89,7 +89,7 @@ class BLEBlindEntity(
     @property
     def assumed_state(self) -> bool:
         """Return True if the device is no longer broadcasting."""
-        return not self.processor.available
+        return not self.available
 
     @callback
     def _handle_coordinator_update(self, *args: Any) -> None:
