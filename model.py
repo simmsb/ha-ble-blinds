@@ -112,6 +112,7 @@ class BLEBlind:
         assert self._client is not None  # nosec
         if not self._position_char:
             raise CharacteristicMissingError("Read characteristic missing")
+        _LOGGER.debug("Writing position: %s", position)
         await self._client.write_gatt_char(self._position_char, struct.pack("<H", position), False)
 
     async def _read_position_locked(self) -> None:
